@@ -1,0 +1,14 @@
+#
+# GNUmakefile.preamble
+#
+
+FFMPEG_CFLAGS := $(shell pkg-config --cflags libavformat libavcodec libavutil 2>/dev/null)
+FFMPEG_LIBS := $(shell pkg-config --libs libavformat libavcodec libavutil 2>/dev/null)
+
+ifneq ($(FFMPEG_CFLAGS),)
+ADDITIONAL_OBJCFLAGS += $(FFMPEG_CFLAGS) -DAVFOUNDATION_HAVE_FFMPEG=1
+endif
+
+ifneq ($(FFMPEG_LIBS),)
+AVFoundation_LIBRARIES_DEPEND_UPON += $(FFMPEG_LIBS)
+endif
