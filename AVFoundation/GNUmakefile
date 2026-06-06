@@ -13,7 +13,7 @@ include $(GNUSTEP_MAKEFILES)/common.make
 #
 # Framework
 #
-VERSION = 0.0.1
+VERSION = 0.1
 PACKAGE_NAME = AVFoundation
 FRAMEWORK_NAME = AVFoundation
 
@@ -26,13 +26,29 @@ AVFoundation_RESOURCE_FILES =
 # Header files
 #
 AVFoundation_HEADER_FILES = \
+AVFoundation.h \
+AVTime.h \
+AVMediaFormat.h \
 AVAsset.h \
+AVURLAsset.h \
+AVAssetTrack.h \
+AVMetadataItem.h \
+AVPlayerItem.h \
+AVPlayer.h \
+AVAudioPlayer.h \
 
 #
 # Class files
 #
 AVFoundation_OBJC_FILES = \
+AVMediaFormat.m \
 AVAsset.m \
+AVURLAsset.m \
+AVAssetTrack.m \
+AVMetadataItem.m \
+AVPlayerItem.m \
+AVPlayer.m \
+AVAudioPlayer.m \
 
 #
 # Makefiles

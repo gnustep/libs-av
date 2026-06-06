@@ -13,7 +13,7 @@ include $(GNUSTEP_MAKEFILES)/common.make
 #
 # Aggregate
 #
-VERSION = 0.0.1
+VERSION = 0.1
 PACKAGE_NAME = AVFoundation
 
 # Generator bundles
