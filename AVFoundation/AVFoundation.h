@@ -12,5 +12,6 @@
 #import <AVFoundation/AVPlayerItem.h>
 #import <AVFoundation/AVPlayer.h>
 #import <AVFoundation/AVAudioPlayer.h>
+#import <AVFoundation/AVMIDIPlayer.h>
 
 #endif

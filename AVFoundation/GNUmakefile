@@ -36,6 +36,7 @@ AVMetadataItem.h \
 AVPlayerItem.h \
 AVPlayer.h \
 AVAudioPlayer.h \
+AVMIDIPlayer.h \
 
 #
 # Class files
@@ -49,6 +50,7 @@ AVMetadataItem.m \
 AVPlayerItem.m \
 AVPlayer.m \
 AVAudioPlayer.m \
+AVMIDIPlayer.m \
 
 #
 # Makefiles
