@@ -9,6 +9,8 @@
 
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
 #include <fluidsynth.h>
+#include <stdlib.h>
+#include <string.h>
 #endif
 
 static NSString *AVMIDIPlayerErrorDomain = @"AVMIDIPlayerErrorDomain";
@@ -49,6 +51,11 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
         {
           *outError = _error;
         }
+      if (_prepared == NO)
+        {
+          RELEASE(self);
+          self = nil;
+        }
     }
   return self;
 }
@@ -66,6 +73,11 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
       if ([self prepareToPlay] == NO && outError != NULL)
         {
           *outError = _error;
+        }
+      if (_prepared == NO)
+        {
+          RELEASE(self);
+          self = nil;
         }
     }
   return self;
@@ -164,6 +176,17 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
 #endif
 }
 
+- (void) _destroyFluidSynthAudioDriver
+{
+#if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
+  if (_audioDriver != NULL)
+    {
+      delete_fluid_audio_driver((fluid_audio_driver_t *)_audioDriver);
+      _audioDriver = NULL;
+    }
+#endif
+}
+
 - (void) _destroyFluidSynthObjects
 {
   @synchronized (self)
@@ -176,11 +199,7 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
           delete_fluid_player((fluid_player_t *)_player);
           _player = NULL;
         }
-      if (_audioDriver != NULL)
-        {
-          delete_fluid_audio_driver((fluid_audio_driver_t *)_audioDriver);
-          _audioDriver = NULL;
-        }
+      [self _destroyFluidSynthAudioDriver];
       if (_synth != NULL)
         {
           delete_fluid_synth((fluid_synth_t *)_synth);
@@ -195,6 +214,70 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
       _prepared = NO;
       _playing = NO;
     }
+}
+
+- (BOOL) _createFluidSynthAudioDriver
+{
+#if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
+  const char *drivers[] = {
+    "pulseaudio",
+    "pipewire",
+    "jack",
+    "alsa",
+    "oss",
+    "sndio",
+    "portaudio",
+    "sdl2",
+    NULL
+  };
+  const char *envDriver;
+  int i;
+
+  if (_audioDriver != NULL)
+    {
+      return YES;
+    }
+
+  envDriver = getenv("AVFOUNDATION_FLUIDSYNTH_AUDIO_DRIVER");
+  if (envDriver != NULL && strlen(envDriver) > 0
+    && fluid_settings_setstr((fluid_settings_t *)_settings,
+      "audio.driver", envDriver) == FLUID_OK)
+    {
+      _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
+        (fluid_synth_t *)_synth);
+      if (_audioDriver != NULL)
+        {
+          return YES;
+        }
+    }
+
+  for (i = 0; drivers[i] != NULL; i++)
+    {
+      if (fluid_settings_setstr((fluid_settings_t *)_settings,
+        "audio.driver", drivers[i]) != FLUID_OK)
+        {
+          continue;
+        }
+      _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
+        (fluid_synth_t *)_synth);
+      if (_audioDriver != NULL)
+        {
+          return YES;
+        }
+    }
+
+  _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
+    (fluid_synth_t *)_synth);
+  if (_audioDriver == NULL)
+    {
+      [self _setErrorCode: AVMIDIPlayerBackendError
+              description: @"Unable to create FluidSynth audio driver."];
+      return NO;
+    }
+  return YES;
+#else
+  return NO;
+#endif
 }
 
 - (BOOL) prepareToPlay
@@ -238,16 +321,6 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
     {
       [self _setErrorCode: AVMIDIPlayerSoundBankError
               description: @"Unable to load the MIDI sound bank."];
-      [self _destroyFluidSynthObjects];
-      return NO;
-    }
-
-  _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
-    (fluid_synth_t *)_synth);
-  if (_audioDriver == NULL)
-    {
-      [self _setErrorCode: AVMIDIPlayerBackendError
-              description: @"Unable to create FluidSynth audio driver."];
       [self _destroyFluidSynthObjects];
       return NO;
     }
@@ -323,6 +396,10 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
       return;
     }
   if (_playing == YES)
+    {
+      return;
+    }
+  if ([self _createFluidSynthAudioDriver] == NO)
     {
       return;
     }
