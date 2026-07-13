@@ -40,6 +40,8 @@ typedef id AVMIDIPlayerCompletionHandler;
 - (BOOL) prepareToPlay;
 - (void) play: (AVMIDIPlayerCompletionHandler)completionHandler;
 - (void) stop;
+- (BOOL) isPlaying;
+- (NSError *) error;
 - (NSTimeInterval) duration;
 - (NSTimeInterval) currentPosition;
 - (void) setCurrentPosition: (NSTimeInterval)position;

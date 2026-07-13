@@ -220,9 +220,8 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
 {
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
   const char *drivers[] = {
-    "pulseaudio",
     "pipewire",
-    "jack",
+    "pulseaudio",
     "alsa",
     "oss",
     "sndio",
@@ -266,15 +265,9 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
         }
     }
 
-  _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
-    (fluid_synth_t *)_synth);
-  if (_audioDriver == NULL)
-    {
-      [self _setErrorCode: AVMIDIPlayerBackendError
-              description: @"Unable to create FluidSynth audio driver."];
-      return NO;
-    }
-  return YES;
+  [self _setErrorCode: AVMIDIPlayerBackendError
+          description: @"Unable to create FluidSynth audio driver."];
+  return NO;
 #else
   return NO;
 #endif
@@ -412,12 +405,27 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
                                toTarget: [self class]
                              withObject: RETAIN(self)];
     }
+  else
+    {
+      [self _setErrorCode: AVMIDIPlayerBackendError
+              description: @"Unable to start MIDI playback."];
+    }
 #endif
 }
 
 - (void) stop
 {
   [self _destroyFluidSynthObjects];
+}
+
+- (BOOL) isPlaying
+{
+  return _playing;
+}
+
+- (NSError *) error
+{
+  return _error;
 }
 
 - (NSTimeInterval) duration
