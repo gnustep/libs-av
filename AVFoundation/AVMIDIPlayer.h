@@ -9,6 +9,8 @@
 #import <Foundation/NSDate.h>
 #import <Foundation/NSError.h>
 
+@class NSCondition;
+
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_0, GS_API_LATEST)
 
 typedef id AVMIDIPlayerCompletionHandler;
@@ -26,9 +28,12 @@ typedef id AVMIDIPlayerCompletionHandler;
   AVMIDIPlayerCompletionHandler _completionHandler;
   NSTimeInterval _duration;
   NSTimeInterval _currentPosition;
+  NSCondition *_playbackCondition;
   float _rate;
   BOOL _prepared;
   BOOL _playing;
+  BOOL _playbackThreadRunning;
+  BOOL _stopRequested;
 }
 
 - (id) initWithContentsOfURL: (NSURL *)inURL

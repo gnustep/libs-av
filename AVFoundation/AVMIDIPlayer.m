@@ -4,6 +4,7 @@
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSFileManager.h>
 #import <Foundation/NSAutoreleasePool.h>
+#import <Foundation/NSLock.h>
 #import <Foundation/NSString.h>
 #import <Foundation/NSThread.h>
 
@@ -46,6 +47,7 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
     {
       ASSIGN(_url, inURL);
       ASSIGN(_soundBankURL, bankURL);
+      _playbackCondition = [NSCondition new];
       _rate = 1.0;
       if ([self prepareToPlay] == NO && outError != NULL)
         {
@@ -69,6 +71,7 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
     {
       ASSIGN(_data, data);
       ASSIGN(_soundBankURL, bankURL);
+      _playbackCondition = [NSCondition new];
       _rate = 1.0;
       if ([self prepareToPlay] == NO && outError != NULL)
         {
@@ -91,6 +94,7 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
   RELEASE(_soundBankURL);
   RELEASE(_error);
   RELEASE(_completionHandler);
+  RELEASE(_playbackCondition);
   [super dealloc];
 }
 
@@ -189,13 +193,14 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
 
 - (void) _destroyFluidSynthObjects
 {
+  [self _stopPlaybackThread];
+
   @synchronized (self)
     {
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
       if (_player != NULL)
         {
           fluid_player_stop((fluid_player_t *)_player);
-          fluid_player_join((fluid_player_t *)_player);
           delete_fluid_player((fluid_player_t *)_player);
           _player = NULL;
         }
@@ -214,6 +219,36 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
       _prepared = NO;
       _playing = NO;
     }
+}
+
+- (void) _stopPlaybackThread
+{
+#if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
+  void *player;
+
+  player = NULL;
+  @synchronized (self)
+    {
+      _stopRequested = YES;
+      _playing = NO;
+      player = _player;
+    }
+
+  if (player != NULL)
+    {
+      fluid_player_stop((fluid_player_t *)player);
+    }
+
+  if (_playbackCondition != nil)
+    {
+      [_playbackCondition lock];
+      while (_playbackThreadRunning == YES)
+        {
+          [_playbackCondition wait];
+        }
+      [_playbackCondition unlock];
+    }
+#endif
 }
 
 - (BOOL) _createFluidSynthAudioDriver
@@ -339,29 +374,57 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
 #endif
 }
 
-- (void) _finishPlaying
+- (void) _runPlaybackThread
 {
   AVMIDIPlayerCompletionHandler completionHandler;
+  BOOL playStarted;
+  BOOL stopped;
+  void *player;
+
+  completionHandler = nil;
+  playStarted = NO;
+  stopped = NO;
+  player = NULL;
 
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
   @synchronized (self)
     {
-      if (_player != NULL)
+      if (_stopRequested == NO)
         {
-          fluid_player_join((fluid_player_t *)_player);
+          player = _player;
+        }
+    }
+
+  if (player != NULL)
+    {
+      if (fluid_player_play((fluid_player_t *)player) == FLUID_OK)
+        {
+          playStarted = YES;
+          fluid_player_join((fluid_player_t *)player);
+        }
+      else
+        {
+          [self _setErrorCode: AVMIDIPlayerBackendError
+                  description: @"Unable to start MIDI playback."];
         }
     }
 #endif
 
   @synchronized (self)
     {
+      stopped = _stopRequested;
       completionHandler = RETAIN(_completionHandler);
       _playing = NO;
     }
 
+  [_playbackCondition lock];
+  _playbackThreadRunning = NO;
+  [_playbackCondition broadcast];
+  [_playbackCondition unlock];
+
 #if defined(__has_feature)
 #  if __has_feature(blocks)
-  if (completionHandler != nil)
+  if (completionHandler != nil && playStarted == YES && stopped == NO)
     {
       ((void (^)(void))completionHandler)();
     }
@@ -371,12 +434,12 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
   RELEASE(completionHandler);
 }
 
-+ (void) _watchPlayback: (AVMIDIPlayer *)player
++ (void) _playbackThread: (AVMIDIPlayer *)player
 {
   NSAutoreleasePool *pool;
 
   pool = [NSAutoreleasePool new];
-  [player _finishPlaying];
+  [player _runPlaybackThread];
   RELEASE(player);
   RELEASE(pool);
 }
@@ -397,19 +460,21 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
       return;
     }
 
-  ASSIGNCOPY(_completionHandler, completionHandler);
-  if (fluid_player_play((fluid_player_t *)_player) == FLUID_OK)
+  @synchronized (self)
     {
+      if (_playing == YES || _playbackThreadRunning == YES)
+        {
+          return;
+        }
+      ASSIGNCOPY(_completionHandler, completionHandler);
+      _stopRequested = NO;
       _playing = YES;
-      [NSThread detachNewThreadSelector: @selector(_watchPlayback:)
-                               toTarget: [self class]
-                             withObject: RETAIN(self)];
+      _playbackThreadRunning = YES;
     }
-  else
-    {
-      [self _setErrorCode: AVMIDIPlayerBackendError
-              description: @"Unable to start MIDI playback."];
-    }
+
+  [NSThread detachNewThreadSelector: @selector(_playbackThread:)
+                           toTarget: [self class]
+                         withObject: RETAIN(self)];
 #endif
 }
 
