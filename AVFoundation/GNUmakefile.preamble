@@ -2,8 +2,13 @@
 # GNUmakefile.preamble
 #
 
-FFMPEG_CFLAGS := $(shell pkg-config --cflags libavformat libavcodec libavutil 2>/dev/null)
-FFMPEG_LIBS := $(shell pkg-config --libs libavformat libavcodec libavutil 2>/dev/null)
+FFMPEG_CFLAGS := $(shell pkg-config --cflags libavformat libavcodec libavutil libavdevice libswresample 2>/dev/null)
+FFMPEG_LIBS := $(shell pkg-config --libs libavformat libavcodec libavutil libavdevice libswresample 2>/dev/null)
+# Fallback if pkg-config returns empty (e.g. FreeBSD without .pc files)
+ifeq ($(strip $(FFMPEG_LIBS)),)
+FFMPEG_CFLAGS :=
+FFMPEG_LIBS   := -lavformat -lavcodec -lavutil -lavdevice -lswresample
+endif
 FLUIDSYNTH_CFLAGS := $(shell pkg-config --cflags fluidsynth 2>/dev/null)
 FLUIDSYNTH_LIBS := $(shell pkg-config --libs fluidsynth 2>/dev/null)
 

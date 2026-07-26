@@ -1,10 +1,12 @@
 /* This file is part of GNUstep */
 
-#import <AVFoundation/AVCaptureOutput.h>
-
-#if OS_API_VERSION(MAC_OS_X_VERSION_10_0, GS_API_LATEST)
+#import "AVCaptureOutput.h"
+#import "AVCaptureSession.h"
+#import <Foundation/NSDebug.h>
 
 @implementation AVCaptureOutput
-@end
 
-#endif
+- (AVCaptureSession *)session { return _session; }
+- (void)_setSession:(AVCaptureSession *)s { _session = s; }
+
+@end

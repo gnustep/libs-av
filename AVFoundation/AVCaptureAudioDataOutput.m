@@ -1,10 +1,28 @@
 /* This file is part of GNUstep */
 
-#import <AVFoundation/AVCaptureAudioDataOutput.h>
-
-#if OS_API_VERSION(MAC_OS_X_VERSION_10_0, GS_API_LATEST)
+#import "AVCaptureAudioDataOutput.h"
+#import "AVCaptureSession.h"
+#import <Foundation/NSDebug.h>
 
 @implementation AVCaptureAudioDataOutput
-@end
 
-#endif
+- (id)init
+{
+  self = [super init];
+  if (self) {
+    _delegate = nil;
+  }
+  return self;
+}
+
+- (id <AVCaptureAudioDataOutputSampleDelegate>)sampleDelegate
+{
+  return _delegate;
+}
+
+- (void)setSampleDelegate:(id <AVCaptureAudioDataOutputSampleDelegate>)delegate
+{
+  _delegate = delegate;
+}
+
+@end
