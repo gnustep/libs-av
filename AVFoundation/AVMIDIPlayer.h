@@ -13,7 +13,15 @@
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_0, GS_API_LATEST)
 
+#if defined(__has_feature)
+#  if __has_feature(blocks)
+typedef void (^AVMIDIPlayerCompletionHandler)(void);
+#  else
 typedef id AVMIDIPlayerCompletionHandler;
+#  endif
+#else
+typedef id AVMIDIPlayerCompletionHandler;
+#endif
 
 @interface AVMIDIPlayer : NSObject
 {
@@ -45,6 +53,13 @@ typedef id AVMIDIPlayerCompletionHandler;
 - (BOOL) prepareToPlay;
 - (void) play: (AVMIDIPlayerCompletionHandler)completionHandler;
 - (void) stop;
+
+@property (readonly, getter=isPlaying) BOOL playing;
+@property (readonly) NSTimeInterval duration;
+@property NSTimeInterval currentPosition;
+@property float rate;
+@property (readonly, retain) NSError *error;
+
 - (BOOL) isPlaying;
 - (NSError *) error;
 - (NSTimeInterval) duration;

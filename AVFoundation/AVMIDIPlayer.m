@@ -36,6 +36,82 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
                          userInfo: userInfo];
 }
 
+#if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
+static BOOL
+AVMIDIPlayerFluidSynthDriverIsAvailable(fluid_settings_t *settings,
+  const char *driver)
+{
+  char *options;
+  char *token;
+  char *saveptr;
+  BOOL available;
+
+  if (settings == NULL || driver == NULL)
+    {
+      return NO;
+    }
+
+  options = fluid_settings_option_concat(settings, "audio.driver", " ");
+  if (options == NULL)
+    {
+      return (fluid_settings_option_count(settings, "audio.driver") == 0);
+    }
+
+  available = NO;
+  token = strtok_r(options, " ", &saveptr);
+  while (token != NULL)
+    {
+      if (strcmp(token, driver) == 0)
+        {
+          available = YES;
+          break;
+        }
+      token = strtok_r(NULL, " ", &saveptr);
+    }
+  free(options);
+  return available;
+}
+
+static BOOL
+AVMIDIPlayerShouldSkipFluidSynthDriver(const char *driver, BOOL explicitDriver)
+{
+  if (driver == NULL || explicitDriver == YES)
+    {
+      return NO;
+    }
+
+  if (strcmp(driver, "pipewire") == 0)
+    {
+      const char *spaPluginDir = getenv("SPA_PLUGIN_DIR");
+      return (spaPluginDir == NULL || strlen(spaPluginDir) == 0);
+    }
+
+  if (strcmp(driver, "sdl2") == 0)
+    {
+      return YES;
+    }
+
+  return NO;
+}
+
+static NSString *
+AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
+{
+  char *options;
+  NSString *string;
+
+  options = fluid_settings_option_concat(settings, "audio.driver", ", ");
+  if (options == NULL)
+    {
+      return @"unknown";
+    }
+
+  string = [NSString stringWithUTF8String: options];
+  free(options);
+  return (string != nil) ? string : @"unknown";
+}
+#endif
+
 @implementation AVMIDIPlayer
 
 - (id) initWithContentsOfURL: (NSURL *)inURL
@@ -255,9 +331,9 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
 {
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
   const char *drivers[] = {
-    "pipewire",
-    "pulseaudio",
     "alsa",
+    "pulseaudio",
+    "pipewire",
     "oss",
     "sndio",
     "portaudio",
@@ -273,20 +349,49 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
     }
 
   envDriver = getenv("AVFOUNDATION_FLUIDSYNTH_AUDIO_DRIVER");
-  if (envDriver != NULL && strlen(envDriver) > 0
-    && fluid_settings_setstr((fluid_settings_t *)_settings,
-      "audio.driver", envDriver) == FLUID_OK)
+  if (envDriver != NULL && strlen(envDriver) > 0)
     {
+      if (AVMIDIPlayerFluidSynthDriverIsAvailable((fluid_settings_t *)_settings,
+        envDriver) == NO)
+        {
+          [self _setErrorCode: AVMIDIPlayerBackendError
+                  description: [NSString stringWithFormat:
+                    @"FluidSynth audio driver '%s' is not available. Available drivers: %@.",
+                    envDriver,
+                    AVMIDIPlayerAvailableFluidSynthDrivers(
+                      (fluid_settings_t *)_settings)]];
+          return NO;
+        }
+      if (fluid_settings_setstr((fluid_settings_t *)_settings,
+        "audio.driver", envDriver) != FLUID_OK)
+        {
+          [self _setErrorCode: AVMIDIPlayerBackendError
+                  description: [NSString stringWithFormat:
+                    @"Unable to select FluidSynth audio driver '%s'.",
+                    envDriver]];
+          return NO;
+        }
       _audioDriver = new_fluid_audio_driver((fluid_settings_t *)_settings,
         (fluid_synth_t *)_synth);
       if (_audioDriver != NULL)
         {
           return YES;
         }
+      [self _setErrorCode: AVMIDIPlayerBackendError
+              description: [NSString stringWithFormat:
+                @"Unable to create FluidSynth audio driver '%s'.",
+                envDriver]];
+      return NO;
     }
 
   for (i = 0; drivers[i] != NULL; i++)
     {
+      if (AVMIDIPlayerFluidSynthDriverIsAvailable((fluid_settings_t *)_settings,
+        drivers[i]) == NO
+        || AVMIDIPlayerShouldSkipFluidSynthDriver(drivers[i], NO) == YES)
+        {
+          continue;
+        }
       if (fluid_settings_setstr((fluid_settings_t *)_settings,
         "audio.driver", drivers[i]) != FLUID_OK)
         {
@@ -301,7 +406,10 @@ AVMIDIPlayerMakeError(NSInteger code, NSString *description)
     }
 
   [self _setErrorCode: AVMIDIPlayerBackendError
-          description: @"Unable to create FluidSynth audio driver."];
+          description: [NSString stringWithFormat:
+            @"Unable to create FluidSynth audio driver. Available drivers: %@.",
+            AVMIDIPlayerAvailableFluidSynthDrivers(
+              (fluid_settings_t *)_settings)]];
   return NO;
 #else
   return NO;
