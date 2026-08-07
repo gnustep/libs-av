@@ -12,6 +12,12 @@
 #import <AVFoundation/AVPlayerItem.h>
 #import <AVFoundation/AVPlayer.h>
 #import <AVFoundation/AVAudioPlayer.h>
+#import <AVFoundation/AVAudioTypes.h>
+#import <AVFoundation/AVAudioFormat.h>
+#import <AVFoundation/AVAudioPCMBuffer.h>
+#import <AVFoundation/AVAudioFile.h>
+#import <AVFoundation/AVAudioEngine.h>
+#import <AVFoundation/AVAudioUnit.h>
 #import <AVFoundation/AVMIDIPlayer.h>
 #import <AVFoundation/AVAggregateAssetDownloadTask.h>
 #import <AVFoundation/AVAssetCache.h>

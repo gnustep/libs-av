@@ -36,6 +36,12 @@ AVMetadataItem.h \
 AVPlayerItem.h \
 AVPlayer.h \
 AVAudioPlayer.h \
+AVAudioTypes.h \
+AVAudioFormat.h \
+AVAudioPCMBuffer.h \
+AVAudioFile.h \
+AVAudioEngine.h \
+AVAudioUnit.h \
 AVMIDIPlayer.h \
 AVAggregateAssetDownloadTask.h \
 AVAssetCache.h \
@@ -210,6 +216,11 @@ AVMetadataItem.m \
 AVPlayerItem.m \
 AVPlayer.m \
 AVAudioPlayer.m \
+AVAudioFormat.m \
+AVAudioPCMBuffer.m \
+AVAudioFile.m \
+AVAudioEngine.m \
+AVAudioUnit.m \
 AVMIDIPlayer.m \
 AVAggregateAssetDownloadTask.m \
 AVAssetCache.m \

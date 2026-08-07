@@ -12,6 +12,7 @@
 #include <fluidsynth.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #endif
 
 static NSString *AVMIDIPlayerErrorDomain = @"AVMIDIPlayerErrorDomain";
@@ -73,6 +74,60 @@ AVMIDIPlayerFluidSynthDriverIsAvailable(fluid_settings_t *settings,
 }
 
 static BOOL
+AVMIDIPlayerPathExists(NSString *path)
+{
+  return ([[NSFileManager defaultManager] fileExistsAtPath: path] == YES);
+}
+
+static BOOL
+AVMIDIPlayerPulseAudioServerIsAvailable(void)
+{
+  const char *pulseServer;
+  const char *runtimeDir;
+  NSString *nativeSocket;
+
+  pulseServer = getenv("PULSE_SERVER");
+  if (pulseServer != NULL && strlen(pulseServer) > 0)
+    {
+      return YES;
+    }
+
+  runtimeDir = getenv("XDG_RUNTIME_DIR");
+  if (runtimeDir == NULL || strlen(runtimeDir) == 0)
+    {
+      return NO;
+    }
+
+  nativeSocket = [[NSString stringWithUTF8String: runtimeDir]
+    stringByAppendingPathComponent: @"pulse/native"];
+  return AVMIDIPlayerPathExists(nativeSocket);
+}
+
+static BOOL
+AVMIDIPlayerPipeWireServerIsAvailable(void)
+{
+  const char *runtimeDir;
+  const char *spaPluginDir;
+  NSString *nativeSocket;
+
+  spaPluginDir = getenv("SPA_PLUGIN_DIR");
+  if (spaPluginDir == NULL || strlen(spaPluginDir) == 0)
+    {
+      return NO;
+    }
+
+  runtimeDir = getenv("XDG_RUNTIME_DIR");
+  if (runtimeDir == NULL || strlen(runtimeDir) == 0)
+    {
+      return NO;
+    }
+
+  nativeSocket = [[NSString stringWithUTF8String: runtimeDir]
+    stringByAppendingPathComponent: @"pipewire-0"];
+  return AVMIDIPlayerPathExists(nativeSocket);
+}
+
+static BOOL
 AVMIDIPlayerShouldSkipFluidSynthDriver(const char *driver, BOOL explicitDriver)
 {
   if (driver == NULL || explicitDriver == YES)
@@ -80,10 +135,29 @@ AVMIDIPlayerShouldSkipFluidSynthDriver(const char *driver, BOOL explicitDriver)
       return NO;
     }
 
+  if (strcmp(driver, "alsa") == 0)
+    {
+      return (AVMIDIPlayerPathExists(@"/dev/snd") == NO);
+    }
+
+  if (strcmp(driver, "pulseaudio") == 0)
+    {
+      return (AVMIDIPlayerPulseAudioServerIsAvailable() == NO);
+    }
+
   if (strcmp(driver, "pipewire") == 0)
     {
-      const char *spaPluginDir = getenv("SPA_PLUGIN_DIR");
-      return (spaPluginDir == NULL || strlen(spaPluginDir) == 0);
+      return (AVMIDIPlayerPipeWireServerIsAvailable() == NO);
+    }
+
+  if (strcmp(driver, "oss") == 0)
+    {
+      return (access("/dev/dsp", W_OK) != 0);
+    }
+
+  if (strcmp(driver, "sndio") == 0 || strcmp(driver, "portaudio") == 0)
+    {
+      return YES;
     }
 
   if (strcmp(driver, "sdl2") == 0)
