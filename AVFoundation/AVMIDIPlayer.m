@@ -1,3 +1,10 @@
+/* Copyright (C) 2022-2026 Free Software Foundation, Inc.
+
+   Author: Gregory John Casamento <greg.casamento@gmail.com>
+
+   This file is part of GNUstep.
+*/
+
 #import "AVMIDIPlayer.h"
 
 #import <Foundation/NSArray.h>
@@ -345,7 +352,7 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
 {
   [self _stopPlaybackThread];
 
-  @synchronized (self)
+  [_playbackCondition lock];
     {
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
       if (_player != NULL)
@@ -369,6 +376,7 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
       _prepared = NO;
       _playing = NO;
     }
+  [_playbackCondition unlock];
 }
 
 - (void) _stopPlaybackThread
@@ -377,12 +385,13 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
   void *player;
 
   player = NULL;
-  @synchronized (self)
+  [_playbackCondition lock];
     {
       _stopRequested = YES;
       _playing = NO;
       player = _player;
     }
+  [_playbackCondition unlock];
 
   if (player != NULL)
     {
@@ -569,13 +578,14 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
   player = NULL;
 
 #if defined(AVFOUNDATION_HAVE_FLUIDSYNTH)
-  @synchronized (self)
+  [_playbackCondition lock];
     {
       if (_stopRequested == NO)
         {
           player = _player;
         }
     }
+  [_playbackCondition unlock];
 
   if (player != NULL)
     {
@@ -592,26 +602,19 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
     }
 #endif
 
-  @synchronized (self)
+  [_playbackCondition lock];
     {
       stopped = _stopRequested;
       completionHandler = RETAIN(_completionHandler);
       _playing = NO;
     }
 
-  [_playbackCondition lock];
   _playbackThreadRunning = NO;
   [_playbackCondition broadcast];
   [_playbackCondition unlock];
 
-#if defined(__has_feature)
-#  if __has_feature(blocks)
-  if (completionHandler != nil && playStarted == YES && stopped == NO)
-    {
-      ((void (^)(void))completionHandler)();
-    }
-#  endif
-#endif
+  (void)playStarted;
+  (void)stopped;
 
   RELEASE(completionHandler);
 }
@@ -642,10 +645,11 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
       return;
     }
 
-  @synchronized (self)
+  [_playbackCondition lock];
     {
       if (_playing == YES || _playbackThreadRunning == YES)
         {
+          [_playbackCondition unlock];
           return;
         }
       ASSIGNCOPY(_completionHandler, completionHandler);
@@ -653,6 +657,7 @@ AVMIDIPlayerAvailableFluidSynthDrivers(fluid_settings_t *settings)
       _playing = YES;
       _playbackThreadRunning = YES;
     }
+  [_playbackCondition unlock];
 
   [NSThread detachNewThreadSelector: @selector(_playbackThread:)
                            toTarget: [self class]

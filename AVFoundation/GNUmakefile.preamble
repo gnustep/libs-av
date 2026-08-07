@@ -1,7 +1,9 @@
+# Copyright (C) 2022-2026 Free Software Foundation, Inc.
 #
-# GNUmakefile.preamble
+# Author: Gregory John Casamento <greg.casamento@gmail.com>
 #
-
+# This file is part of GNUstep.
+#
 FFMPEG_CFLAGS := $(shell pkg-config --cflags libavformat libavcodec libavutil 2>/dev/null)
 FFMPEG_LIBS := $(shell pkg-config --libs libavformat libavcodec libavutil 2>/dev/null)
 FLUIDSYNTH_CFLAGS := $(shell pkg-config --cflags fluidsynth 2>/dev/null)

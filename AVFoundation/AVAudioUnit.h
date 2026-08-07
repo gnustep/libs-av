@@ -1,4 +1,9 @@
-/* This file is part of GNUstep */
+/* Copyright (C) 2022-2026 Free Software Foundation, Inc.
+
+   Author: Gregory John Casamento <greg.casamento@gmail.com>
+
+   This file is part of GNUstep.
+*/
 
 #ifndef _AVAudioUnit_h_GNUSTEP_INCLUDE
 #define _AVAudioUnit_h_GNUSTEP_INCLUDE
@@ -29,10 +34,7 @@ enum
 
 typedef long long AUEventSampleTime;
 typedef float AUValue;
-typedef void (^AUScheduleMIDIEventBlock)(AUEventSampleTime eventSampleTime,
-                                         UInt8 cable,
-                                         NSInteger length,
-                                         const UInt8 *midiBytes);
+typedef id AUScheduleMIDIEventBlock;
 
 @interface AUParameter : NSObject
 - (uint64_t) address;
@@ -56,14 +58,13 @@ typedef void (^AUScheduleMIDIEventBlock)(AUEventSampleTime eventSampleTime,
 - (void) setFullState: (NSDictionary *)state;
 - (AUParameterTree *) parameterTree;
 - (AUScheduleMIDIEventBlock) scheduleMIDIEventBlock;
-- (void) requestViewControllerWithCompletionHandler: (void (^)(id controller))completionHandler;
+- (void) requestViewControllerWithCompletionHandler: (id)completionHandler;
 @end
 
 @interface AVAudioUnit : AVAudioNode
 + (void) instantiateWithComponentDescription: (AudioComponentDescription)audioComponentDescription
                                      options: (NSUInteger)options
-                           completionHandler: (void (^)(AVAudioUnit *audioUnit,
-                                                        NSError *error))completionHandler;
+                           completionHandler: (id)completionHandler;
 - (AUAudioUnit *) AUAudioUnit;
 @end
 
@@ -127,8 +128,7 @@ typedef enum
 
 @interface AVAudioUnitComponentManager : NSObject
 + (AVAudioUnitComponentManager *) sharedAudioUnitComponentManager;
-- (NSArray *) componentsPassingTest: (BOOL (^)(AVAudioUnitComponent *component,
-                                               BOOL *stop))testHandler;
+- (NSArray *) componentsPassingTest: (id)testHandler;
 @end
 
 #endif

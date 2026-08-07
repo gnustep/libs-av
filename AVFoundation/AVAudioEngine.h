@@ -1,4 +1,9 @@
-/* This file is part of GNUstep */
+/* Copyright (C) 2022-2026 Free Software Foundation, Inc.
+
+   Author: Gregory John Casamento <greg.casamento@gmail.com>
+
+   This file is part of GNUstep.
+*/
 
 #ifndef _AVAudioEngine_h_GNUSTEP_INCLUDE
 #define _AVAudioEngine_h_GNUSTEP_INCLUDE
@@ -13,10 +18,7 @@
 extern NSString * const AVAudioEngineConfigurationChangeNotification;
 
 @class AVAudioNode;
-typedef OSStatus (^AVAudioSourceNodeRenderBlock)(BOOL *isSilence,
-                                                 const AudioTimeStamp *timestamp,
-                                                 AVAudioFrameCount frameCount,
-                                                 AudioBufferList *outputData);
+typedef id AVAudioSourceNodeRenderBlock;
 
 @interface AVAudioNode : NSObject
 @end
