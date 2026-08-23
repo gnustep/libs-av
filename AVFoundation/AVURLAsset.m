@@ -14,6 +14,7 @@
 #import <Foundation/NSPathUtilities.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSArray.h>
+#import <Foundation/NSData.h>
 
 #ifdef AVFOUNDATION_HAVE_FFMPEG
 #include <libavformat/avformat.h>
@@ -48,6 +49,22 @@ AVTracksContainMediaType(NSArray *tracks, NSString *mediaType)
         }
     }
   return NO;
+}
+
+// Map FFmpeg metadata keys to AVMetadataCommonKey constants.
+// Returns the common key string, or nil if no mapping exists.
+static NSString *
+_commonKeyForFFmpegKey(const char *key)
+{
+  if (strcmp(key, "title") == 0)      return AVMetadataCommonKeyTitle;
+  if (strcmp(key, "artist") == 0)     return AVMetadataCommonKeyArtist;
+  if (strcmp(key, "album") == 0)      return AVMetadataCommonKeyAlbumName;
+  if (strcmp(key, "composer") == 0)   return AVMetadataCommonKeyComposer;
+  if (strcmp(key, "genre") == 0)      return AVMetadataCommonKeyGenre;
+  if (strcmp(key, "track") == 0)      return AVMetadataCommonKeyTrackNumber;
+  if (strcmp(key, "date") == 0)       return AVMetadataCommonKeyCreationDate;
+  if (strcmp(key, "encoder") == 0)    return AVMetadataCommonKeySoftware;
+  return nil;
 }
 
 @implementation AVURLAsset
@@ -155,6 +172,35 @@ AVTracksContainMediaType(NSArray *tracks, NSString *mediaType)
                 600);
             }
 
+          // Read format-level metadata (ID3 tags, etc.)
+          {
+            AVDictionaryEntry *tag = NULL;
+            while ((tag = av_dict_get(formatContext->metadata, "",
+              tag, AV_DICT_IGNORE_SUFFIX)) != NULL)
+              {
+                NSString *key = [NSString stringWithUTF8String: tag->key];
+                NSString *value = [NSString stringWithUTF8String: tag->value];
+                NSString *commonKey;
+                AVMetadataItem *item;
+
+                commonKey = _commonKeyForFFmpegKey(tag->key);
+                if (commonKey != nil)
+                  {
+                    item = [[AVMetadataItem alloc] initWithKey: commonKey
+                                                      keySpace: AVMetadataKeySpaceCommon
+                                                         value: value];
+                  }
+                else
+                  {
+                    item = [[AVMetadataItem alloc] initWithKey: key
+                                                      keySpace: AVMetadataKeySpaceID3
+                                                         value: value];
+                  }
+                [metadata addObject: item];
+                RELEASE(item);
+              }
+          }
+
           for (i = 0; i < formatContext->nb_streams; i++)
             {
               AVStream *stream;
@@ -192,6 +238,31 @@ AVTracksContainMediaType(NSArray *tracks, NSString *mediaType)
                                                   naturalTimeScale: timeScale];
                   [tracks addObject: track];
                   RELEASE(track);
+                }
+            }
+
+          // Look for attached pictures (album art) in video streams
+          // with AV_DISPOSITION_ATTACHED_PIC disposition.
+          for (i = 0; i < formatContext->nb_streams; i++)
+            {
+              AVStream *stream = formatContext->streams[i];
+              if (stream->disposition & AV_DISPOSITION_ATTACHED_PIC)
+                {
+                  AVPacket *pkt = &stream->attached_pic;
+                  if (pkt->size > 0 && pkt->data != NULL)
+                    {
+                      NSData *imageData;
+                      AVMetadataItem *item;
+
+                      imageData = [NSData dataWithBytes: pkt->data
+                                                  length: pkt->size];
+                      item = [[AVMetadataItem alloc]
+                        initWithKey: AVMetadataCommonKeyArtwork
+                             keySpace: AVMetadataKeySpaceCommon
+                                value: imageData];
+                      [metadata addObject: item];
+                      RELEASE(item);
+                    }
                 }
             }
         }
